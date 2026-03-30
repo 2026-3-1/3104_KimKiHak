@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Header from '../widgets/Header'
 import { useAuth } from '../features/useAuth'
 import { useMyCourses } from '../features/useMyCourses'
 import CourseReview from '../features/CourseReview'
+import { getLecture } from '../shared/api/lectures'
 
 type CurriculumItem = {
     id: number
@@ -13,6 +14,7 @@ type CurriculumItem = {
 }
 
 type CurriculumSection = {
+    id: number
     title: string
     items: CurriculumItem[]
 }
@@ -35,81 +37,109 @@ type Course = {
     }[]
 }
 
-export const SAMPLE_COURSE: Course = {
-    id: 1,
-    title: '프론트엔드 실전 React 강좌',
-    instructor: '강사 김코딩',
-    description: 'React 기초부터 실무 프로젝트까지 한 번에 학습합니다. 최신 React 18 버전을 사용하며, TypeScript와 함께 실전적인 웹 애플리케이션을 개발하는 방법을 배웁니다.',
-    youtubeId: 'Ke90Tje7VS0',
-    thumbnail: 'https://img.youtube.com/vi/Ke90Tje7VS0/hqdefault.jpg',
-    level: '중급',
-    tags: ['React', 'TypeScript', '웹개발', '프론트엔드'],
-    curriculum: [
-        {
-            title: 'React 기초',
-            items: [
-                { id: 1, title: 'React 소개 및 설치', duration: '15:30', youtubeId: 'Ke90Tje7VS0', isPreview: true },
-                { id: 2, title: 'JSX와 컴포넌트', duration: '22:45', youtubeId: 'dQw4w9WgXcQ' },
-                { id: 3, title: 'Props와 State', duration: '28:10', youtubeId: '9bZkp7q19f0' },
-                { id: 4, title: '이벤트 처리', duration: '19:55', youtubeId: 'hTWKbfoikeg' },
-            ]
-        },
-        {
-            title: '고급 React',
-            items: [
-                { id: 5, title: 'Hooks 사용하기', duration: '35:20', youtubeId: 'dpw9EHDh2bM' },
-                { id: 6, title: 'Context API', duration: '25:40', youtubeId: '5LrDIWkK_Bc' },
-                { id: 7, title: 'React Router', duration: '30:15', youtubeId: '4sosXZsCCWQ' },
-                { id: 8, title: '성능 최적화', duration: '27:50', youtubeId: 'aVhdasj8oL8' },
-            ]
-        },
-        {
-            title: '실전 프로젝트',
-            items: [
-                { id: 9, title: '프로젝트 기획', duration: '18:30', youtubeId: 'fJ9rUzIMcZQ' },
-                { id: 10, title: '컴포넌트 설계', duration: '40:20', youtubeId: 'YLgBvRsXtlM' },
-                { id: 11, title: 'API 연동', duration: '45:10', youtubeId: '4UZrsTqkc8E' },
-                { id: 12, title: '배포하기', duration: '20:05', youtubeId: 'hQjlM-8C4Ps' },
-            ]
-        }
-    ],
-    reviews: [
-        {
-            author: '학생A',
-            rating: 5,
-            comment: '정말 좋은 강의입니다. 실무에 바로 적용할 수 있어요!',
-            createdAt: '2024-01-15'
-        },
-        {
-            author: '학생B',
-            rating: 4,
-            comment: '설명이 자세하고 예제가 많아서 좋았습니다.',
-            createdAt: '2024-01-10'
-        }
-    ]
-}
-
 const CourseDetail = () => {
-    const course = SAMPLE_COURSE
+    const [course, setCourse] = useState<Course | null>(null)
+    const [isLoading, setIsLoading] = useState(true)
+    const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const [activeTab, setActiveTab] = useState<'intro' | 'curriculum' | 'reviews'>('intro')
 
     const { isAuthenticated, openModal } = useAuth()
     const { enrollCourse, isEnrolled, enrolledCourses } = useMyCourses()
-    const [reviews, setReviews] = useState(course.reviews)
+    const [reviews, setReviews] = useState<Course['reviews']>([])
 
-    const currentEnrolledCourse = enrolledCourses.find(c => c.id === course.id)
+    const currentEnrolledCourse = enrolledCourses.find(c => c.id === course?.id)
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search)
+        const idParam = params.get('id') || params.get('courseId')
+        const courseId = Number(idParam)
+
+        if (!courseId || Number.isNaN(courseId)) {
+            setErrorMessage('강의 정보를 찾을 수 없습니다.')
+            setIsLoading(false)
+            return
+        }
+
+        const toDuration = (seconds: number) => {
+            const minutes = Math.floor(seconds / 60)
+            const remaining = Math.floor(seconds % 60)
+            return `${minutes}:${remaining.toString().padStart(2, '0')}`
+        }
+
+        const loadCourse = async () => {
+            try {
+                const lecture = await getLecture(courseId)
+                const curriculum = lecture.sections
+                    .slice()
+                    .sort((a, b) => a.order - b.order)
+                    .map(section => ({
+                        id: section.id,
+                        title: section.title,
+                        items: section.videos
+                            .slice()
+                            .sort((a, b) => a.order - b.order)
+                            .map(item => ({
+                                id: item.id,
+                                title: item.title,
+                                duration: toDuration(item.durationSec),
+                                youtubeId: item.youtubeId ?? undefined,
+                                isPreview: item.isPreview ?? false,
+                            })),
+                    }))
+
+                const primaryYoutubeId =
+                    lecture.youtubeId ??
+                    curriculum[0]?.items[0]?.youtubeId ??
+                    ''
+
+                const mapped: Course = {
+                    id: lecture.id,
+                    title: lecture.title,
+                    instructor: lecture.instructor?.name ?? '알 수 없음',
+                    description: lecture.description ?? '',
+                    youtubeId: primaryYoutubeId,
+                    thumbnail:
+                        lecture.thumbnail ??
+                        (primaryYoutubeId
+                            ? `https://img.youtube.com/vi/${primaryYoutubeId}/hqdefault.jpg`
+                            : 'https://img.youtube.com/vi/default.jpg'),
+                    level: lecture.level ?? '입문',
+                    tags: lecture.tags?.map(tag => tag.name) ?? [],
+                    curriculum,
+                    reviews: lecture.reviews.map(review => ({
+                        author: review.user?.name ?? '익명',
+                        rating: review.rating,
+                        comment: review.comment,
+                        createdAt: new Date(review.createdAt).toLocaleDateString('ko-KR'),
+                    })),
+                }
+
+                setCourse(mapped)
+                setReviews(mapped.reviews)
+            } catch (error) {
+                console.error(error)
+                setErrorMessage('강의 정보를 불러오지 못했습니다.')
+            } finally {
+                setIsLoading(false)
+            }
+        }
+
+        loadCourse()
+    }, [])
 
 
     const openLesson = (item: CurriculumItem) => {
+        if (!course) return
         const search = new URLSearchParams({
+            courseId: course.id.toString(),
             lessonId: item.id.toString(),
             lessonTitle: item.title,
-            youtubeId: course.youtubeId,
+            youtubeId: item.youtubeId || course.youtubeId,
         })
         window.location.href = `/course-watch?${search.toString()}`
     }
 
-    const totalDuration = course.curriculum.reduce((total, section) => {
+    const totalDuration = course?.curriculum.reduce((total, section) => {
         return total + section.items.reduce((sectionTotal, item) => {
             const [minutes, seconds] = item.duration.split(':').map(Number)
             return sectionTotal + minutes * 60 + seconds
@@ -123,6 +153,36 @@ const CourseDetail = () => {
             return `${hours}시간 ${minutes}분`
         }
         return `${minutes}분`
+    }
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-white">
+                <Header />
+                <div className="px-4 py-10 mx-auto max-w-5xl text-center text-slate-600">
+                    강의 정보를 불러오는 중입니다...
+                </div>
+            </div>
+        )
+    }
+
+    if (!course || errorMessage) {
+        return (
+            <div className="min-h-screen bg-white">
+                <Header />
+                <div className="px-4 py-10 mx-auto max-w-5xl text-center">
+                    <p className="mb-4 text-lg font-semibold text-slate-700">
+                        {errorMessage ?? '강의를 찾을 수 없습니다.'}
+                    </p>
+                    <button
+                        onClick={() => window.history.back()}
+                        className="px-4 py-2 font-semibold text-white bg-blue-600 rounded hover:bg-blue-700"
+                    >
+                        돌아가기
+                    </button>
+                </div>
+            </div>
+        )
     }
 
     return (    
@@ -151,7 +211,7 @@ const CourseDetail = () => {
                                 {isAuthenticated ? (
                                     isEnrolled(course.id) ? (
                                         <button
-                                            onClick={() => window.location.href = `/course-watch?lessonId=${course.curriculum[0].items[0].id}&youtubeId=${course.youtubeId}`}
+                                            onClick={() => window.location.href = `/course-watch?courseId=${course.id}&lessonId=${course.curriculum[0].items[0].id}&youtubeId=${course.youtubeId}`}
                                             className="px-8 py-3 text-lg font-semibold bg-green-600 rounded-lg hover:bg-green-700"
                                         >
                                             강의 이어서 보기
@@ -165,7 +225,7 @@ const CourseDetail = () => {
                                                     instructor: course.instructor,
                                                     thumbnail: course.thumbnail
                                                 })
-                                                window.location.href = `/course-watch?lessonId=${course.curriculum[0].items[0].id}&youtubeId=${course.youtubeId}`
+                                                window.location.href = `/course-watch?courseId=${course.id}&lessonId=${course.curriculum[0].items[0].id}&youtubeId=${course.youtubeId}`
                                             }}
                                             className="px-8 py-3 text-lg font-semibold bg-blue-600 rounded-lg hover:bg-blue-700"
                                         >

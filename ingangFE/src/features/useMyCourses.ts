@@ -62,7 +62,7 @@ export const useMyCourses = () => {
         })
     }
 
-    const completeLesson = (courseId: number, lessonId: number) => {
+    const completeLesson = (courseId: number, lessonId: number, totalLessons: number) => {
         if (!user) return
 
         setEnrolledCourses(prev => {
@@ -70,8 +70,9 @@ export const useMyCourses = () => {
                 const completedLessons = course.completedLessons ?? []
                 if (course.id === courseId && !completedLessons.includes(lessonId)) {
                     const newCompletedLessons = [...completedLessons, lessonId]
-                    const totalLessons = 12 // SAMPLE_COURSE의 총 강의 수
-                    const progress = Math.round((newCompletedLessons.length / totalLessons) * 100)
+                    const progress = totalLessons > 0
+                        ? Math.round((newCompletedLessons.length / totalLessons) * 100)
+                        : 0
                     return { ...course, completedLessons: newCompletedLessons, progress }
                 }
                 return course
