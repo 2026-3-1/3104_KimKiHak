@@ -1,0 +1,126 @@
+// Prisma schema for Ingang backend
+// Provider is PostgreSQL for local/dev; change DATABASE_URL as needed.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserType {
+  STUDENT
+  INSTRUCTOR
+}
+
+model User {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  name         String
+  passwordHash String
+  type         UserType
+  createdAt    DateTime       @default(now())
+
+  lectures      Lecture[]      @relation("LectureInstructor")
+  reviews       Review[]
+  subscriptions Subscription[]
+}
+
+model Lecture {
+  id           Int              @id @default(autoincrement())
+  title        String
+  description  String?
+  level        String?
+  thumbnail    String?
+  youtubeId    String?
+  instructorId String
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  instructor   User             @relation(fields: [instructorId], references: [id], name: "LectureInstructor")
+  tags         LectureTag[]
+  sections     LectureSection[]
+  reviews      Review[]
+  subscriptions Subscription[]
+}
+
+model LectureTag {
+  id        Int     @id @default(autoincrement())
+  lectureId Int
+  name      String
+
+  lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+
+  @@index([lectureId])
+}
+
+model LectureSection {
+  id        Int    @id @default(autoincrement())
+  lectureId Int
+  title     String
+  order     Int
+
+  lecture Lecture       @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  videos  LectureVideo[]
+
+  @@index([lectureId])
+}
+
+model LectureVideo {
+  id                Int     @id @default(autoincrement())
+  lectureSectionId  Int
+  title             String
+  durationSec       Int
+  youtubeId         String?
+  isPreview         Boolean @default(false)
+  order             Int
+
+  section LectureSection @relation(fields: [lectureSectionId], references: [id], onDelete: Cascade)
+  lessons SubscriptionLesson[]
+
+  @@index([lectureSectionId])
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  lectureId Int
+  userId    String
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+
+  lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([lectureId])
+  @@index([userId])
+}
+
+model Subscription {
+  id        Int      @id @default(autoincrement())
+  lectureId Int
+  userId    String
+  enrolledAt DateTime @default(now())
+  progress  Int      @default(0)
+
+  lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessons SubscriptionLesson[]
+
+  @@unique([lectureId, userId])
+  @@index([userId])
+}
+
+model SubscriptionLesson {
+  id             Int      @id @default(autoincrement())
+  subscriptionId Int
+  lessonId       Int
+  completedAt    DateTime @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  lesson       LectureVideo @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, lessonId])
+  @@index([subscriptionId])
+}
