@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../features/useAuth'
-import AuthModal from '../features/AuthModal'
+import AuthModal from './AuthModal'
 
 const Header = () => {
     const { isAuthenticated, user, logout, isModalOpen, openModal, closeModal, login } = useAuth()
@@ -10,7 +10,7 @@ const Header = () => {
         e.preventDefault()
         if (searchQuery.trim()) {
             // 검색 결과 페이지로 이동 (쿼리 파라미터로 검색어 전달)
-            window.location.href = `/?search=${encodeURIComponent(searchQuery.trim())}`
+            window.location.href = `/search?search=${encodeURIComponent(searchQuery.trim())}`
         }
     }
 
@@ -20,12 +20,15 @@ const Header = () => {
                 <div className="flex items-center h-16 gap-4 px-4 mx-auto max-w-7xl">
                     <a
                         href="/"
-                        className="flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-900"
+                        className="flex items-center gap-3 text-lg font-semibold tracking-tight text-slate-900"
                     >
-                        <span className="inline-flex items-center justify-center w-8 h-8 text-sm font-bold text-white bg-blue-600 rounded-lg">
-                            SI
+                        <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-amber-700 text-white">
+                            <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden="true" fill="currentColor">
+                                <path d="M12 2C8.13 2 5 5.13 5 9v2h14V9c0-3.87-3.13-7-7-7zm0 3c1.66 0 3 1.34 3 3v1H9V8c0-1.66 1.34-3 3-3z" />
+                                <path d="M4 13h16v3c0 2.76-2.24 5-5 5H9c-2.76 0-5-2.24-5-5v-3z" opacity="0.9" />
+                            </svg>
                         </span>
-                        StudyIT
+                        노가다워크
                     </a>
 
                     <div className="items-center flex-1 hidden md:flex">
@@ -42,8 +45,8 @@ const Header = () => {
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="원하는 강의, 키워드를 검색해보세요"
-                                className="w-full h-10 pl-10 pr-4 text-sm border rounded-full border-slate-200 bg-slate-50 text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                                placeholder="원하는 작업, 장비, 키워드를 검색해보세요"
+                                className="w-full h-10 pl-10 pr-4 text-sm border rounded-full border-slate-200 bg-slate-50 text-slate-800 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-100"
                             />
                         </form>
                     </div>
@@ -52,7 +55,7 @@ const Header = () => {
                         {isAuthenticated && user ? (
                             <div className="flex items-center gap-3">
                                 <div className="flex items-center gap-2">
-                                    <div className="flex items-center justify-center w-8 h-8 text-sm font-bold text-white bg-blue-600 rounded-full">
+                                    <div className="flex items-center justify-center w-8 h-8 text-sm font-bold text-white bg-amber-600 rounded-full">
                                         {user.name[0]}
                                     </div>
                                     <div className="hidden md:block">
@@ -79,7 +82,7 @@ const Header = () => {
                                 </button>
                                 <button
                                     onClick={openModal}
-                                    className="px-4 py-2 text-sm font-medium rounded-full bg-blue-600 text-white hover:bg-blue-700"
+                                    className="px-4 py-2 text-sm font-medium rounded-full bg-amber-600 text-white hover:bg-amber-700"
                                 >
                                     회원가입
                                 </button>

@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import type { User } from './useAuth'
+import type { User } from '../types/auth'
+import * as authApi from '../shared/api/auth'
 
 interface AuthModalProps {
     isOpen: boolean
     onClose: () => void
-    onLogin: (user: User) => void
+    onLogin: (user: User, accessToken: string) => void
 }
 
 type UserType = 'student' | 'instructor'
@@ -19,16 +20,12 @@ const AuthModal = ({ isOpen, onClose, onLogin }: AuthModalProps) => {
         name: '',
         confirmPassword: ''
     })
+    const [isLoading, setIsLoading] = useState(false)
 
     const resetForm = () => {
         setMode('select')
         setUserType(null)
-        setFormData({
-            email: '',
-            password: '',
-            name: '',
-            confirmPassword: ''
-        })
+        setFormData({ email: '', password: '', name: '', confirmPassword: '' })
     }
 
     const handleClose = () => {
@@ -41,59 +38,56 @@ const AuthModal = ({ isOpen, onClose, onLogin }: AuthModalProps) => {
         setMode('login')
     }
 
-    const handleFormSubmit = (e: React.FormEvent) => {
+    const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
+        setIsLoading(true)
 
-        if (mode === 'register') {
-            // 회원가입 로직
-            if (formData.password !== formData.confirmPassword) {
-                alert('비밀번호가 일치하지 않습니다.')
-                return
-            }
+        try {
+            if (mode === 'register') {
+                if (formData.password !== formData.confirmPassword) {
+                    alert('비밀번호가 일치하지 않습니다.')
+                    return
+                }
+                if (!formData.name.trim()) {
+                    alert('이름을 입력해주세요.')
+                    return
+                }
 
-            if (!formData.name.trim()) {
-                alert('이름을 입력해주세요.')
-                return
-            }
+                // [주석처리] 기존 localStorage 기반 회원가입 로직
+                // const existingUsers = JSON.parse(localStorage.getItem('ingang_users') || '[]')
+                // const userExists = existingUsers.find((u: any) => u.email === formData.email)
+                // if (userExists) { alert('이미 존재하는 이메일입니다.'); return }
+                // const newUser: User = { id: Date.now().toString(), email: formData.email, name: formData.name, type: userType!, createdAt: new Date().toISOString() }
+                // existingUsers.push({ ...newUser, password: formData.password })
+                // localStorage.setItem('ingang_users', JSON.stringify(existingUsers))
+                // onLogin(newUser)
 
-            // 로컬스토리지에서 기존 사용자 확인
-            const existingUsers = JSON.parse(localStorage.getItem('ingang_users') || '[]')
-            const userExists = existingUsers.find((u: any) => u.email === formData.email)
-
-            if (userExists) {
-                alert('이미 존재하는 이메일입니다.')
-                return
-            }
-
-            // 새 사용자 생성
-            const newUser: User = {
-                id: Date.now().toString(),
-                email: formData.email,
-                name: formData.name,
-                type: userType!,
-                createdAt: new Date().toISOString()
-            }
-
-            // 사용자 저장
-            existingUsers.push({ ...newUser, password: formData.password })
-            localStorage.setItem('ingang_users', JSON.stringify(existingUsers))
-
-            onLogin(newUser)
-            handleClose()
-        } else {
-            // 로그인 로직
-            const users = JSON.parse(localStorage.getItem('ingang_users') || '[]')
-            const user = users.find((u: any) =>
-                u.email === formData.email && u.password === formData.password
-            )
-
-            if (user) {
-                const { password, ...userWithoutPassword } = user
-                onLogin(userWithoutPassword)
-                handleClose()
+                const result = await authApi.register({
+                    email: formData.email,
+                    password: formData.password,
+                    name: formData.name,
+                    type: userType!,
+                })
+                onLogin(result.user, result.accessToken)
             } else {
-                alert('이메일 또는 비밀번호가 올바르지 않습니다.')
+                // [주석처리] 기존 localStorage 기반 로그인 로직
+                // const users = JSON.parse(localStorage.getItem('ingang_users') || '[]')
+                // const user = users.find((u: any) => u.email === formData.email && u.password === formData.password)
+                // if (user) { const { password, ...userWithoutPassword } = user; onLogin(userWithoutPassword); handleClose() }
+                // else { alert('이메일 또는 비밀번호가 올바르지 않습니다.') }
+
+                const result = await authApi.login({
+                    email: formData.email,
+                    password: formData.password,
+                })
+                onLogin(result.user, result.accessToken)
             }
+            handleClose()
+        } catch (err: any) {
+            const message = err.response?.data?.message ?? '오류가 발생했습니다.'
+            alert(message)
+        } finally {
+            setIsLoading(false)
         }
     }
 
@@ -218,9 +212,10 @@ const AuthModal = ({ isOpen, onClose, onLogin }: AuthModalProps) => {
 
                             <button
                                 type="submit"
-                                className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors font-medium"
+                                disabled={isLoading}
+                                className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors font-medium disabled:opacity-50"
                             >
-                                {mode === 'login' ? '로그인' : '회원가입'}
+                                {isLoading ? '처리 중...' : mode === 'login' ? '로그인' : '회원가입'}
                             </button>
                         </form>
                     )}

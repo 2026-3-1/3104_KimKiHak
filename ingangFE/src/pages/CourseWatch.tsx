@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Header from '../widgets/Header'
 import { useMyCourses } from '../features/useMyCourses'
 import { getLecture } from '../shared/api/lectures'
+import type { CurriculumSection } from '../types/course'
 
 const CourseWatch = () => {
     const params = new URLSearchParams(window.location.search)
@@ -12,17 +13,7 @@ const CourseWatch = () => {
         id: number
         title: string
         youtubeId: string
-        curriculum: {
-            id: number
-            title: string
-            items: {
-                id: number
-                title: string
-                duration: string
-                youtubeId?: string
-                isPreview?: boolean
-            }[]
-        }[]
+        curriculum: CurriculumSection[]
     } | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -31,6 +22,7 @@ const CourseWatch = () => {
 
     const currentEnrolledCourse = enrolledCourses.find(c => c.id === course?.id)
     const isCompleted = currentEnrolledCourse?.completedLessons?.includes(selectedLessonId) || false
+    const canWatchLesson = (item: CurriculumSection['items'][number]) => item.isPreview || !!currentEnrolledCourse
 
     useEffect(() => {
         if (!courseId || Number.isNaN(courseId)) {
@@ -120,7 +112,44 @@ const CourseWatch = () => {
         }
     }, [course, selectedLesson, currentYoutubeId])
 
+    useEffect(() => {
+        if (!course || currentEnrolledCourse) return
+
+        let selected: CurriculumSection['items'][number] | null = null
+        for (const section of course.curriculum) {
+            const item = section.items.find((i) => i.id === selectedLessonId)
+            if (item) {
+                selected = item
+                break
+            }
+        }
+
+        if (selected && selected.isPreview) return
+
+        const preview = course.curriculum
+            .flatMap((section) => section.items)
+            .find((item) => item.isPreview)
+
+        if (preview) {
+            setSelectedLessonId(preview.id)
+            setCurrentYoutubeId(preview.youtubeId || course.youtubeId)
+            const newParams = new URLSearchParams({
+                courseId: course.id.toString(),
+                lessonId: preview.id.toString(),
+                lessonTitle: preview.title,
+                youtubeId: preview.youtubeId || course.youtubeId,
+            })
+            window.history.replaceState(null, '', `/course-watch?${newParams.toString()}`)
+        } else {
+            setErrorMessage('미리보기 영상이 없습니다. 수강신청 후 시청할 수 있습니다.')
+        }
+    }, [course, currentEnrolledCourse, selectedLessonId])
+
     const updateLesson = (item: NonNullable<typeof course>['curriculum'][number]['items'][number]) => {
+        if (!canWatchLesson(item)) {
+            alert('미리보기 영상만 시청할 수 있습니다. 수강신청 후 전체 강의를 시청하세요.')
+            return
+        }
         setSelectedLessonId(item.id)
         if (!course) return
         setCurrentYoutubeId(item.youtubeId || course.youtubeId)
