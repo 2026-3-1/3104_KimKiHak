@@ -1,4 +1,5 @@
 ﻿import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLectureDto } from './dto/create-lecture.dto';
 import { UpdateLectureDto } from './dto/update-lecture.dto';
@@ -24,8 +25,22 @@ export class LecturesService {
     return lecture;
   }
 
-  async findAll() {
+  async findAll(category?: string) {
+    const where = category
+      ? {
+          tags: {
+            some: {
+              name: {
+                contains: category.toLowerCase(),
+                mode: Prisma.QueryMode.insensitive,
+              },
+            },
+          },
+        }
+      : {};
+
     return this.prisma.lecture.findMany({
+      where,
       orderBy: { createdAt: 'desc' },
       include: {
         tags: true,

@@ -1,4 +1,4 @@
-﻿import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
+﻿import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
 import { LecturesService } from './lectures.service';
 import { CreateLectureDto } from './dto/create-lecture.dto';
 import { UpdateLectureDto } from './dto/update-lecture.dto';
@@ -16,8 +16,8 @@ export class LecturesController {
   }
 
   @Get()
-  findAll() {
-    return this.lecturesService.findAll();
+  findAll(@Query('category') category?: string) {
+    return this.lecturesService.findAll(category);
   }
 
   @Get(':id')
