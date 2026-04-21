@@ -10,6 +10,7 @@ export const mockLectures: ApiLecture[] = [
     youtubeId: '3GwjfUFyY6M',
     instructor: { id: '1', name: '강사1' },
     tags: [{ name: '철거/타설' }],
+    price: 0,
   },
   {
     id: 2,
@@ -20,6 +21,7 @@ export const mockLectures: ApiLecture[] = [
     youtubeId: '5NV6Rdv1a3I',
     instructor: { id: '2', name: '강사2' },
     tags: [{ name: '전기/배선' }],
+    price: 0,
   },
   {
     id: 3,
@@ -30,6 +32,7 @@ export const mockLectures: ApiLecture[] = [
     youtubeId: 'L_jWHffIx5E',
     instructor: { id: '3', name: '강사3' },
     tags: [{ name: '배관/설비' }],
+    price: 0,
   },
 ]
 
@@ -43,6 +46,7 @@ export const mockLectureDetails: Record<number, ApiLectureDetail> = {
     youtubeId: '3GwjfUFyY6M',
     instructor: { id: '1', name: '강사1' },
     tags: [{ name: '철거/타설' }],
+    price: 0,
     sections: [
       {
         id: 11,
@@ -132,6 +136,7 @@ export const mockLectureDetails: Record<number, ApiLectureDetail> = {
     youtubeId: '5NV6Rdv1a3I',
     instructor: { id: '2', name: '강사2' },
     tags: [{ name: '전기/배선' }],
+    price: 0,
     sections: [
       {
         id: 21,

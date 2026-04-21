@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getLecture } from '../shared/api/lectures'
+import { getLecture, syncLectureDurations } from '../shared/api/lectures'
 import type { ApiLectureDetail } from '../shared/api/lectures'
 import type { CourseDetailFull, Review } from '../types/course'
 import { secondsToTimeString } from '../shared/utils/course'
@@ -18,6 +18,7 @@ const mapLectureToCourseDetail = (lecture: ApiLectureDetail): CourseDetailFull =
           id: item.id,
           title: item.title,
           duration: secondsToTimeString(item.durationSec),
+          durationSec: item.durationSec,
           youtubeId: item.youtubeId ?? undefined,
           isPreview: item.isPreview ?? false,
         })),
@@ -38,6 +39,7 @@ const mapLectureToCourseDetail = (lecture: ApiLectureDetail): CourseDetailFull =
         ? `https://img.youtube.com/vi/${primaryYoutubeId}/hqdefault.jpg`
         : 'https://img.youtube.com/vi/default.jpg'),
     level: lecture.level ?? '입문',
+    price: lecture.price ?? 0,
     tags: lecture.tags?.map((tag) => tag.name) ?? [],
     curriculum,
     reviews: lecture.reviews.map((review) => ({
@@ -71,6 +73,8 @@ export const useCourseDetail = (courseId: number | null) => {
 
     const loadCourse = async () => {
       try {
+        // 플레이어 없이도 커리큘럼 시간이 항상 정확하도록 서버에서 durationSec 동기화
+        await syncLectureDurations(courseId).catch(() => {})
         const lecture = await getLecture(courseId)
         if (isMounted) {
           const mappedCourse = mapLectureToCourseDetail(lecture)

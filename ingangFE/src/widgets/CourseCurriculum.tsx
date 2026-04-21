@@ -1,5 +1,5 @@
 import type { CourseDetailFull, CurriculumItem, EnrolledCourse } from '../types/course'
-import { formatDuration } from '../shared/utils/course'
+import { formatDuration, getLessonStatus, secondsToTimeString } from '../shared/utils/course'
 
 type CourseCurriculumProps = {
   course: CourseDetailFull
@@ -24,18 +24,14 @@ const CourseCurriculum = ({
               <h3 className="text-lg font-semibold">{section.title}</h3>
               <p className="text-sm text-slate-600">
                 {section.items.length}강 ·{' '}
-                {formatDuration(
-                  section.items.reduce((total, item) => {
-                    const [minutes, seconds] = item.duration.split(':').map(Number)
-                    return total + minutes * 60 + seconds
-                  }, 0),
-                )}
+                {formatDuration(section.items.reduce((total, item) => total + item.durationSec, 0))}
               </p>
             </div>
             <div className="divide-y">
               {section.items.map((item) => {
-                const canWatch = item.isPreview || isEnrolled
-                const isCompleted = enrolledCourse?.completedLessons?.includes(item.id) ?? false
+                const canWatch    = item.isPreview || isEnrolled
+                const watched     = enrolledCourse?.lessonProgress?.[item.id] ?? 0
+                const status      = getLessonStatus(watched, item.durationSec)
 
                 return (
                   <button
@@ -47,7 +43,8 @@ const CourseCurriculum = ({
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      {isCompleted && <span className="text-green-600">✅</span>}
+                      {status === 'COMPLETED' && <span className="text-green-600">✅</span>}
+                      {status === 'IN_PROGRESS' && <span className="text-blue-500 text-sm">▶</span>}
                       {item.isPreview && (
                         <span className="px-2 py-1 text-xs text-green-800 bg-green-100 rounded">
                           미리보기
@@ -56,12 +53,18 @@ const CourseCurriculum = ({
                       <span className="font-medium">{item.title}</span>
                     </div>
                     <div className="flex items-center gap-3 text-sm text-slate-600">
-                      <span>{item.duration}</span>
-                      {canWatch ? (
-                        <span className="text-blue-600 hover:text-blue-800">▶️ 재생</span>
-                      ) : (
-                        <span className="text-slate-400">🔒 잠김</span>
+                      <span>{secondsToTimeString(item.durationSec)}</span>
+                      {status === 'COMPLETED' && (
+                        <span className="text-green-600 text-xs font-medium">시청 완료</span>
                       )}
+                      {status === 'IN_PROGRESS' && (
+                        <span className="text-blue-500 text-xs">시청 중</span>
+                      )}
+                      {canWatch && status === 'NOT_STARTED' ? (
+                        <span className="text-blue-600 hover:text-blue-800">▶️ 재생</span>
+                      ) : !canWatch ? (
+                        <span className="text-slate-400">🔒 잠김</span>
+                      ) : null}
                     </div>
                   </button>
                 )

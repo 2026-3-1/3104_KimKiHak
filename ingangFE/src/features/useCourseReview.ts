@@ -22,7 +22,7 @@ export const useCourseReview = (courseId: number, initialReviews: Review[]) => {
 
   const [showForm, setShowForm] = useState(false)
   const [reviewText, setReviewText] = useState('')
-  const [reviewRating, setReviewRating] = useState(RATING.DEFAULT)
+  const [reviewRating, setReviewRating] = useState<number>(RATING.DEFAULT)
   const [editingReview, setEditingReview] = useState<{ index: number; id?: number; text: string } | null>(null)
   const [showMenu, setShowMenu] = useState<number | null>(null)
 

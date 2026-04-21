@@ -6,6 +6,7 @@ export type Course = {
     level: string
     tags: string[]
     description?: string
+    totalDurationSec?: number
 }
 
 export type Review = {
@@ -27,10 +28,13 @@ export type CourseDetail = Course & {
 export type CurriculumItem = {
     id: number
     title: string
-    duration: string
+    duration: string    // formatted "M:SS"
+    durationSec: number // raw seconds — used for status calculation
     youtubeId?: string
     isPreview?: boolean
 }
+
+export type LessonStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED'
 
 export type CurriculumSection = {
     id: number
@@ -47,6 +51,7 @@ export type CourseDetailFull = {
     thumbnail: string
     level: string
     tags: string[]
+    price: number
     curriculum: CurriculumSection[]
     reviews: Review[]
     learningGoals?: string[]
@@ -63,5 +68,16 @@ export type EnrolledCourse = {
     thumbnail: string
     enrolledAt: string
     progress: number // 0-100
-    completedLessons: number[] // 완료된 강의 ID 목록
+    completedLessons: number[]
+    lessonProgress: Record<number, number> // lessonId → watchedSeconds
+    lastWatchedLessonId: number | null     // 가장 최근 시청한 lessonId
+}
+
+export type Bookmark = {
+    id: number
+    subscriptionId: number
+    lessonId: number
+    seconds: number
+    label: string
+    createdAt: string
 }

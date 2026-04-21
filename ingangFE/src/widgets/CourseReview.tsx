@@ -13,6 +13,7 @@ const CourseReview = ({ courseId, reviews, onSave }: CourseReviewProps) => {
         localReviews,
         averageRating,
         showForm,
+        setShowForm,
         reviewText,
         setReviewText,
         reviewRating,

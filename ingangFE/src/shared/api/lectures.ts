@@ -16,11 +16,13 @@ export type ApiLecture = {
   level?: string | null;
   thumbnail?: string | null;
   youtubeId?: string | null;
+  price: number;
   instructor?: LectureInstructor | null;
   tags?: LectureTag[];
   learningGoals?: string[] | null;
   prerequisites?: string[] | null;
   includes?: string[] | null;
+  sections?: { videos: { durationSec: number }[] }[];
 };
 
 export const getLectures = async (category?: string) => {
@@ -80,4 +82,14 @@ export const getLecture = async (id: number) => {
     // if (mockLectureDetails[id]) { return mockLectureDetails[id]; }
     throw error;
   }
+};
+
+export const syncLectureDurations = async (lectureId: number) => {
+  const response = await http.post(`/lectures/${lectureId}/sync-durations`);
+  return response.data;
+};
+
+export const patchLessonDuration = async (lessonId: number, durationSec: number) => {
+  const response = await http.patch(`/lectures/lessons/${lessonId}/duration`, { durationSec });
+  return response.data;
 };

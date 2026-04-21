@@ -8,6 +8,7 @@ import { buildCourseWatchUrl } from '../shared/utils/course'
 import { useCourseDetail } from '../features/useCourseDetail'
 import { useAuth } from '../features/useAuth'
 import { useMyCourses } from '../features/useMyCourses'
+import { useCart } from '../features/useCart'
 import type { CurriculumItem } from '../types/course'
 
 const CourseDetail = () => {
@@ -15,12 +16,15 @@ const CourseDetail = () => {
     const courseId = Number(params.get('id') || params.get('courseId'))
 
     const { course, reviews, setReviews, isLoading, errorMessage } = useCourseDetail(courseId)
-    const { isAuthenticated, openModal } = useAuth()
+    const { isAuthenticated, user, openModal } = useAuth()
     const { enrollCourse, isEnrolled, enrolledCourses } = useMyCourses()
+    const { isInCart, addItem: addToCart } = useCart(user?.id ?? null)
     const [activeTab, setActiveTab] = useState<'intro' | 'curriculum' | 'reviews'>('intro')
+    const [cartMsg, setCartMsg] = useState('')
 
     const enrolledCourse = course ? enrolledCourses.find((item) => item.id === course.id) : undefined
     const courseIsEnrolled = course ? isEnrolled(course.id) : false
+    const courseIsInCart = course ? isInCart(course.id) : false
 
     const openLesson = (item: CurriculumItem) => {
         if (!course) return
@@ -29,25 +33,48 @@ const CourseDetail = () => {
 
     const handleStartWatching = () => {
         if (!course) return
-        const firstLesson = course.curriculum[0]?.items[0]
-        if (firstLesson) {
-            openLesson(firstLesson)
+
+        // 마지막으로 시청한 강의 위치에서 이어보기
+        if (enrolledCourse?.lastWatchedLessonId) {
+            const lessonId = enrolledCourse.lastWatchedLessonId
+            const startSeconds = enrolledCourse.lessonProgress[lessonId] ?? 0
+            const found = course.curriculum.flatMap((s) => s.items).find((i) => i.id === lessonId)
+            if (found) {
+                window.location.href = buildCourseWatchUrl(
+                    course.id, lessonId, found.youtubeId ?? course.youtubeId, startSeconds,
+                )
+                return
+            }
         }
+
+        // 처음 시청
+        const firstLesson = course.curriculum[0]?.items[0]
+        if (firstLesson) openLesson(firstLesson)
     }
 
     const handleEnroll = () => {
         if (!course) return
-
         const targetLesson = course.curriculum[0]?.items[0]
         enrollCourse({
             id: course.id,
             title: course.title,
             instructor: course.instructor,
             thumbnail: course.thumbnail,
+            lessonProgress: {},
+            lastWatchedLessonId: null,
         })
+        if (targetLesson) openLesson(targetLesson)
+    }
 
-        if (targetLesson) {
-            openLesson(targetLesson)
+    const handleAddToCart = async () => {
+        if (!course || !user) return
+        try {
+            await addToCart(course.id)
+            setCartMsg('장바구니에 추가되었습니다!')
+            setTimeout(() => setCartMsg(''), 3000)
+        } catch {
+            setCartMsg('장바구니 추가 실패. 다시 시도해주세요.')
+            setTimeout(() => setCartMsg(''), 3000)
         }
     }
 
@@ -88,10 +115,19 @@ const CourseDetail = () => {
                 course={course}
                 isAuthenticated={isAuthenticated}
                 isEnrolled={courseIsEnrolled}
+                isInCart={courseIsInCart}
                 onEnroll={handleEnroll}
                 onStartWatching={handleStartWatching}
                 onOpenModal={openModal}
+                onAddToCart={handleAddToCart}
             />
+
+            {/* 장바구니 토스트 메시지 */}
+            {cartMsg && (
+                <div className="fixed z-50 px-4 py-2 text-sm font-medium text-white rounded-lg shadow-lg bottom-6 right-6 bg-slate-800">
+                    {cartMsg}
+                </div>
+            )}
 
             <SectionTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
