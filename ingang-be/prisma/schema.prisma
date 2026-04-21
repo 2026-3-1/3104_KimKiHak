@@ -1,6 +1,3 @@
-// Prisma schema for Ingang backend
-// Provider is PostgreSQL for local/dev; change DATABASE_URL as needed.
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,6 +11,30 @@ enum UserType {
   INSTRUCTOR
 }
 
+enum OrderStatus {
+  PENDING
+  PAID
+  PARTIALLY_CANCELLED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  DONE
+  CANCELLED
+  PARTIAL_CANCELLED
+  ABORTED
+  EXPIRED
+}
+
+enum CancelReason {
+  USER_REQUEST
+  LECTURE_CANCELLED
+  CAPACITY_EXCEEDED
+  ENROLLMENT_SHORTAGE
+}
+
 model User {
   id           String         @id @default(cuid())
   email        String         @unique
@@ -25,27 +46,32 @@ model User {
   lectures      Lecture[]      @relation("LectureInstructor")
   reviews       Review[]
   subscriptions Subscription[]
+  cart          Cart?
+  orders        Order[]
 }
 
 model Lecture {
-  id           Int              @id @default(autoincrement())
-  title        String
-  description  String?
-  level        String?
-  thumbnail    String?
-  youtubeId    String?
-  learningGoals String[]        @default([])
-  prerequisites String[]        @default([])
-  includes      String[]        @default([])
-  instructorId String
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  id            Int              @id @default(autoincrement())
+  title         String
+  description   String?
+  level         String?
+  thumbnail     String?
+  youtubeId     String?
+  price         Int              @default(0)
+  learningGoals String[]         @default([])
+  prerequisites String[]         @default([])
+  includes      String[]         @default([])
+  instructorId  String
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
   instructor   User             @relation(fields: [instructorId], references: [id], name: "LectureInstructor")
   tags         LectureTag[]
   sections     LectureSection[]
   reviews      Review[]
   subscriptions Subscription[]
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
 }
 
 model LectureTag {
@@ -64,23 +90,24 @@ model LectureSection {
   title     String
   order     Int
 
-  lecture Lecture       @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  lecture Lecture        @relation(fields: [lectureId], references: [id], onDelete: Cascade)
   videos  LectureVideo[]
 
   @@index([lectureId])
 }
 
 model LectureVideo {
-  id                Int     @id @default(autoincrement())
-  lectureSectionId  Int
-  title             String
-  durationSec       Int
-  youtubeId         String?
-  isPreview         Boolean @default(false)
-  order             Int
+  id               Int     @id @default(autoincrement())
+  lectureSectionId Int
+  title            String
+  durationSec      Int
+  youtubeId        String?
+  isPreview        Boolean @default(false)
+  order            Int
 
-  section LectureSection @relation(fields: [lectureSectionId], references: [id], onDelete: Cascade)
-  lessons SubscriptionLesson[]
+  section   LectureSection       @relation(fields: [lectureSectionId], references: [id], onDelete: Cascade)
+  lessons   SubscriptionLesson[]
+  bookmarks Bookmark[]
 
   @@index([lectureSectionId])
 }
@@ -102,15 +129,16 @@ model Review {
 }
 
 model Subscription {
-  id        Int      @id @default(autoincrement())
-  lectureId Int
-  userId    String
+  id         Int      @id @default(autoincrement())
+  lectureId  Int
+  userId     String
   enrolledAt DateTime @default(now())
-  progress  Int      @default(0)
+  progress   Int      @default(0)
 
-  lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lessons SubscriptionLesson[]
+  lecture Lecture              @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessons   SubscriptionLesson[]
+  bookmarks Bookmark[]
 
   @@unique([lectureId, userId])
   @@index([userId])
@@ -121,10 +149,111 @@ model SubscriptionLesson {
   subscriptionId Int
   lessonId       Int
   completedAt    DateTime @default(now())
+  watchedSeconds Int      @default(0)
+  lastWatchedAt  DateTime @default(now()) @updatedAt
 
   subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
   lesson       LectureVideo @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
   @@unique([subscriptionId, lessonId])
   @@index([subscriptionId])
+}
+
+model Bookmark {
+  id             Int      @id @default(autoincrement())
+  subscriptionId Int
+  lessonId       Int
+  seconds        Int
+  label          String
+  createdAt      DateTime @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  lesson       LectureVideo @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+}
+
+// ── 장바구니 ──────────────────────────────────────────────
+
+model Cart {
+  id        Int        @id @default(autoincrement())
+  userId    String     @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+}
+
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  cartId    Int
+  lectureId Int
+  addedAt   DateTime @default(now())
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  lecture Lecture @relation(fields: [lectureId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, lectureId])
+  @@index([cartId])
+}
+
+// ── 주문 ────────────────────────────────────────────────
+
+model Order {
+  id          Int         @id @default(autoincrement())
+  userId      String
+  status      OrderStatus @default(PENDING)
+  totalAmount Int
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items   OrderItem[]
+  payment Payment?
+}
+
+model OrderItem {
+  id        Int @id @default(autoincrement())
+  orderId   Int
+  lectureId Int
+  price     Int
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  lecture Lecture @relation(fields: [lectureId], references: [id])
+
+  @@index([orderId])
+}
+
+// ── 결제 ────────────────────────────────────────────────
+
+model Payment {
+  id           Int           @id @default(autoincrement())
+  orderId      Int           @unique
+  paymentKey   String        @unique
+  status       PaymentStatus
+  amount       Int
+  paidAt       DateTime?
+  cancelledAt  DateTime?
+  cancelReason CancelReason?
+  refundAmount Int?
+  rawData      Json?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  order         Order          @relation(fields: [orderId], references: [id])
+  cancelRecords CancelRecord[]
+}
+
+model CancelRecord {
+  id           Int          @id @default(autoincrement())
+  paymentId    Int
+  reason       CancelReason
+  cancelAmount Int
+  cancelledAt  DateTime     @default(now())
+  note         String?
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
 }

@@ -1,6 +1,7 @@
 require('dotenv/config');
 const { PrismaClient } = require('@prisma/client');
 const { PrismaPg } = require('@prisma/adapter-pg');
+const https = require('https');
 
 if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL가 설정되어 있지 않습니다. .env 파일 또는 환경 변수를 확인하세요.');
@@ -9,6 +10,47 @@ if (!process.env.DATABASE_URL) {
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
 });
+
+const fetchText = (url) =>
+  new Promise((resolve, reject) => {
+    https
+      .get(
+        url,
+        {
+          headers: {
+            // YouTube가 UA에 따라 다른 HTML을 주는 경우가 있어 브라우저 UA로 고정
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+            'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
+          },
+        },
+        (res) => {
+          if (res.statusCode && res.statusCode >= 400) {
+            reject(new Error(`HTTP ${res.statusCode}`));
+            res.resume();
+            return;
+          }
+          let data = '';
+          res.setEncoding('utf8');
+          res.on('data', (chunk) => (data += chunk));
+          res.on('end', () => resolve(data));
+        },
+      )
+      .on('error', reject);
+  });
+
+const getYoutubeDurationSec = async (youtubeId) => {
+  if (!youtubeId) throw new Error('youtubeId missing');
+  const html = await fetchText(`https://www.youtube.com/watch?v=${encodeURIComponent(youtubeId)}`);
+
+  // watch 페이지 HTML 내에 lengthSeconds가 포함됩니다.
+  const match = html.match(/\"lengthSeconds\"\s*:\s*\"(\d+)\"/);
+  if (!match) throw new Error('lengthSeconds not found');
+
+  const seconds = Number(match[1]);
+  if (!Number.isFinite(seconds) || seconds <= 0) throw new Error('invalid lengthSeconds');
+  return seconds;
+};
 
 async function main() {
   const instructorEmail = 'instructor@ingang.test';
@@ -52,6 +94,49 @@ async function main() {
     },
   });
 
+  const rawVideos = [
+    {
+      title: '강의소개',
+      youtubeId: '42Xfl3Q0Swc',
+      isPreview: true,
+      order: 1,
+      fallbackDurationSec: 240,
+    },
+    {
+      title: '타일 붙이는 방법 (기초)',
+      youtubeId: 'luNpI11x8Ec',
+      isPreview: false,
+      order: 2,
+      fallbackDurationSec: 600,
+    },
+    {
+      title: '줄눈(그라우트) 작업',
+      youtubeId: 'K9vpggy-elE',
+      isPreview: false,
+      order: 3,
+      fallbackDurationSec: 420,
+    },
+    {
+      title: '바닥 준비 (평탄화)',
+      youtubeId: 'jIDA_a4H1Lg',
+      isPreview: false,
+      order: 4,
+      fallbackDurationSec: 540,
+    },
+  ];
+
+  const videos = await Promise.all(
+    rawVideos.map(async (v) => {
+      try {
+        const durationSec = await getYoutubeDurationSec(v.youtubeId);
+        return { ...v, durationSec };
+      } catch (e) {
+        console.warn(`[seed] duration fetch failed (${v.youtubeId}), using fallback`, e?.message ?? e);
+        return { ...v, durationSec: v.fallbackDurationSec };
+      }
+    }),
+  );
+
   const lecture = await prisma.lecture.create({
     data: {
       title: '타일 시공 기초: 바닥 준비부터 줄눈까지',
@@ -91,34 +176,7 @@ async function main() {
             order: 1,
             videos: {
               create: [
-                {
-                  title: '강의소개',
-                  durationSec: 240,
-                  youtubeId: '42Xfl3Q0Swc',
-                  isPreview: true,
-                  order: 1,
-                },
-                {
-                  title: '타일 붙이는 방법 (기초)',
-                  durationSec: 600,
-                  youtubeId: '8d3i2kX0YcE',
-                  isPreview: false,
-                  order: 2,
-                },
-                {
-                  title: '줄눈(그라우트) 작업',
-                  durationSec: 420,
-                  youtubeId: 'U7dF5mVxk0I',
-                  isPreview: false,
-                  order: 3,
-                },
-                {
-                  title: '바닥 준비 (평탄화)',
-                  durationSec: 540,
-                  youtubeId: 'V6h9x2zFz0Y',
-                  isPreview: false,
-                  order: 4,
-                },
+                ...videos.map(({ fallbackDurationSec, ...rest }) => rest),
               ],
             },
           },

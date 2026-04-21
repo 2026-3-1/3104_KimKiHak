@@ -8,6 +8,9 @@ import { LecturesModule } from './lectures/lectures.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { SearchModule } from './search/search.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { CartModule } from './cart/cart.module';
+import { OrdersModule } from './orders/orders.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -18,6 +21,9 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module';
     ReviewsModule,
     SearchModule,
     SubscriptionsModule,
+    CartModule,
+    OrdersModule,
+    PaymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

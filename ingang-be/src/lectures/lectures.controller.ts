@@ -5,6 +5,7 @@ import { UpdateLectureDto } from './dto/update-lecture.dto';
 import { AddLectureTagDto } from './dto/add-lecture-tag.dto';
 import { CreateLectureSectionDto } from './dto/create-lecture-section.dto';
 import { CreateLectureLessonDto } from './dto/create-lecture-lesson.dto';
+import { UpdateLessonDurationDto } from './dto/update-lesson-duration.dto';
 
 @Controller('lectures')
 export class LecturesController {
@@ -50,5 +51,18 @@ export class LecturesController {
     @Body() dto: CreateLectureLessonDto,
   ) {
     return this.lecturesService.addLessonToLecture(id, sectionId, dto);
+  }
+
+  @Patch('lessons/:lessonId/duration')
+  updateLessonDuration(
+    @Param('lessonId', ParseIntPipe) lessonId: number,
+    @Body() dto: UpdateLessonDurationDto,
+  ) {
+    return this.lecturesService.updateLessonDuration(lessonId, dto.durationSec);
+  }
+
+  @Post(':id/sync-durations')
+  syncDurations(@Param('id', ParseIntPipe) id: number) {
+    return this.lecturesService.syncLectureDurations(id);
   }
 }

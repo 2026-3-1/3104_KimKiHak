@@ -1,4 +1,5 @@
 ﻿import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLectureDto } from './dto/create-lecture.dto';
@@ -6,10 +7,14 @@ import { UpdateLectureDto } from './dto/update-lecture.dto';
 import { AddLectureTagDto } from './dto/add-lecture-tag.dto';
 import { CreateLectureSectionDto } from './dto/create-lecture-section.dto';
 import { CreateLectureLessonDto } from './dto/create-lecture-lesson.dto';
+import { YoutubeDurationService } from './youtube-duration.service';
 
 @Injectable()
 export class LecturesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly youtubeDuration: YoutubeDurationService,
+  ) {}
 
   async create(dto: CreateLectureDto) {
     const lecture = await this.prisma.lecture.create({
@@ -45,6 +50,11 @@ export class LecturesService {
       include: {
         tags: true,
         instructor: { select: { id: true, name: true } },
+        sections: {
+          include: {
+            videos: { select: { durationSec: true } },
+          },
+        },
       },
     });
   }
@@ -123,6 +133,53 @@ export class LecturesService {
         order: dto.order,
       },
     });
+  }
+
+  async updateLessonDuration(lessonId: number, durationSec: number) {
+    const normalized = Math.floor(Number(durationSec));
+    if (!Number.isFinite(normalized) || normalized <= 0 || normalized > 24 * 60 * 60) {
+      throw new BadRequestException('유효하지 않은 durationSec 입니다.');
+    }
+
+    const lesson = await this.prisma.lectureVideo.findUnique({ where: { id: lessonId } });
+    if (!lesson) throw new NotFoundException('강의 영상을 찾을 수 없습니다.');
+
+    // 불필요한 DB write 방지
+    if (lesson.durationSec === normalized) return lesson;
+
+    return this.prisma.lectureVideo.update({
+      where: { id: lessonId },
+      data: { durationSec: normalized },
+    });
+  }
+
+  async syncLectureDurations(lectureId: number) {
+    // 플레이어 없이도 항상 정확한 durationSec를 보장하기 위한 서버 동기화
+    const videos = await this.prisma.lectureVideo.findMany({
+      where: { section: { lectureId } },
+      select: { id: true, youtubeId: true, durationSec: true },
+      orderBy: { id: 'asc' },
+    });
+
+    let updatedCount = 0;
+
+    for (const video of videos) {
+      if (!video.youtubeId) continue;
+      try {
+        const actual = await this.youtubeDuration.getDurationSec(video.youtubeId);
+        if (Math.abs(actual - video.durationSec) <= 1) continue;
+
+        await this.prisma.lectureVideo.update({
+          where: { id: video.id },
+          data: { durationSec: actual },
+        });
+        updatedCount += 1;
+      } catch {
+        // 동기화 실패는 화면을 막지 않도록 무시 (기존 durationSec 사용)
+      }
+    }
+
+    return { updatedCount, total: videos.length };
   }
 
   private async ensureLecture(lectureId: number) {
