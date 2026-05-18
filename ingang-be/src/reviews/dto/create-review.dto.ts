@@ -1,6 +1,19 @@
-﻿export class CreateReviewDto {
-  lectureId: number;
-  userId: string;
-  rating: number;
-  comment: string;
+import { IsInt, IsString, Max, Min, MinLength } from 'class-validator';
+
+export class CreateReviewDto {
+  @IsInt()
+  @Min(1)
+  lectureId!: number;
+
+  @IsString()
+  userId!: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  rating!: number;
+
+  @IsString()
+  @MinLength(1)
+  comment!: string;
 }

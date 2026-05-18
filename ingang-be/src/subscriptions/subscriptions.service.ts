@@ -8,15 +8,20 @@ export class SubscriptionsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async enroll(dto: CreateSubscriptionDto) {
+    const include = {
+      lessons: true,
+      lecture: { include: { instructor: { select: { id: true, name: true } } } },
+    };
+
     const existing = await this.prisma.subscription.findUnique({
       where: { lectureId_userId: { lectureId: dto.lectureId, userId: dto.userId } },
-      include: { lessons: true },
+      include,
     });
     if (existing) return existing;
 
     return this.prisma.subscription.create({
       data: { lectureId: dto.lectureId, userId: dto.userId },
-      include: { lessons: true },
+      include,
     });
   }
 
