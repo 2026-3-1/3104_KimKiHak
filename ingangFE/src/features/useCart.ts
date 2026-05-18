@@ -23,22 +23,14 @@ export const useCart = (userId: string | null) => {
 
     const addItem = async (lectureId: number) => {
         if (!userId) return;
-        try {
-            const cart = await addToCart(userId, lectureId);
-            setItems(cart.items);
-        } catch (e) {
-            throw e;
-        }
+        const cart = await addToCart(userId, lectureId);
+        setItems(cart.items);
     };
 
     const removeItem = async (lectureId: number) => {
         if (!userId) return;
-        try {
-            const cart = await removeFromCart(userId, lectureId);
-            setItems(cart.items);
-        } catch (e) {
-            throw e;
-        }
+        const cart = await removeFromCart(userId, lectureId);
+        setItems(cart.items);
     };
 
     const isInCart = (lectureId: number) => items.some((item) => item.lectureId === lectureId);

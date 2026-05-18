@@ -83,9 +83,11 @@ const AuthModal = ({ isOpen, onClose, onLogin }: AuthModalProps) => {
                 onLogin(result.user, result.accessToken)
             }
             handleClose()
-        } catch (err: any) {
-            const message = err.response?.data?.message ?? '오류가 발생했습니다.'
-            alert(message)
+        } catch (err: unknown) {
+            const message =
+                (err as { response?: { data?: { message?: string | string[] } } }).response?.data?.message ??
+                '오류가 발생했습니다.'
+            alert(Array.isArray(message) ? message[0] : message)
         } finally {
             setIsLoading(false)
         }

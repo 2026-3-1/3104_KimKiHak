@@ -9,10 +9,11 @@ import * as subscriptionsApi from '../shared/api/subscriptions'
 export const useMyCourses = () => {
     const { user } = useAuth()
     const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourse[]>([])
+    const [isCoursesLoading, setIsCoursesLoading] = useState(() => !!user)
 
     useEffect(() => {
         if (!user) {
-            setEnrolledCourses([])
+            setIsCoursesLoading(false)
             return
         }
 
@@ -20,12 +21,14 @@ export const useMyCourses = () => {
         // const saved = localStorage.getItem(`${STORAGE_KEYS.MY_COURSES}-${user.id}`)
         // if (saved) { try { setEnrolledCourses(JSON.parse(saved)) } catch { setEnrolledCourses([]) } }
 
+        setIsCoursesLoading(true)
         subscriptionsApi.getMySubscriptions(user.id)
             .then(setEnrolledCourses)
             .catch((err) => {
                 console.error('수강 목록 불러오기 실패:', err)
                 setEnrolledCourses([])
             })
+            .finally(() => setIsCoursesLoading(false))
     }, [user])
 
     const enrollCourse = async (course: Omit<EnrolledCourse, 'enrolledAt' | 'progress' | 'completedLessons' | 'subscriptionId'>) => {
@@ -35,21 +38,17 @@ export const useMyCourses = () => {
         // const newEnrolledCourse: EnrolledCourse = { ...course, enrolledAt: new Date().toISOString(), progress: 0, completedLessons: [] }
         // setEnrolledCourses(prev => { const updated = [newEnrolledCourse, ...prev]; localStorage.setItem(...); return updated })
 
-        try {
-            const enrolled = await subscriptionsApi.enrollLecture(course.id, user.id)
-            setEnrolledCourses(prev => {
-                if (prev.some(c => c.id === course.id)) return prev
-                return [enrolled, ...prev]
-            })
-        } catch (err) {
-            console.error('수강신청 실패:', err)
-        }
+        const enrolled = await subscriptionsApi.enrollLecture(course.id, user.id)
+        setEnrolledCourses(prev => {
+            if (prev.some(c => c.id === course.id)) return prev
+            return [enrolled, ...prev]
+        })
     }
 
     // [주석처리] 기존 localStorage 기반 진도 업데이트 (서버에서 자동 계산)
     // const updateProgress = (courseId: number, progress: number) => { ... }
 
-    const completeLesson = async (courseId: number, lessonId: number, _totalLessons: number) => {
+    const completeLesson = async (courseId: number, lessonId: number) => {
         if (!user) return
 
         // [주석처리] 기존 localStorage 기반 완료 처리
@@ -67,16 +66,18 @@ export const useMyCourses = () => {
     }
 
     const isEnrolled = (courseId: number) => {
-        return enrolledCourses.some(course => course.id === courseId)
+        return user ? enrolledCourses.some(course => course.id === courseId) : false
     }
 
     const isCompleted = (courseId: number) => {
+        if (!user) return false
         const course = enrolledCourses.find(c => c.id === courseId)
         return course ? course.progress >= 100 : false
     }
 
     return {
-        enrolledCourses,
+        enrolledCourses: user ? enrolledCourses : [],
+        isCoursesLoading,
         enrollCourse,
         completeLesson,
         isEnrolled,

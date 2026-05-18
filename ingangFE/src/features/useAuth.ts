@@ -1,33 +1,25 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import type { User, AuthState } from '../types/auth'
 import { STORAGE_KEYS } from '../constants'
 
 export type { User }
 
 export const useAuth = () => {
-    const [authState, setAuthState] = useState<AuthState>({
-        isAuthenticated: false,
-        user: null,
-        isModalOpen: false
-    })
-
-    // localStorage에서 사용자 정보 로드
-    useEffect(() => {
+    const [authState, setAuthState] = useState<AuthState>(() => {
+        const initial: AuthState = { isAuthenticated: false, user: null, isModalOpen: false }
         const savedAuth = localStorage.getItem(STORAGE_KEYS.AUTH)
-        if (savedAuth) {
-            try {
-                const parsed = JSON.parse(savedAuth)
-                setAuthState({
-                    isAuthenticated: true,
-                    user: parsed.user,
-                    isModalOpen: false
-                })
-            } catch (error) {
-                console.error('Failed to parse auth data:', error)
-                localStorage.removeItem(STORAGE_KEYS.AUTH)
-            }
+        if (!savedAuth) return initial
+
+        try {
+            const parsed = JSON.parse(savedAuth) as { user?: User }
+            if (!parsed?.user) return initial
+            return { isAuthenticated: true, user: parsed.user, isModalOpen: false }
+        } catch (error) {
+            console.error('Failed to parse auth data:', error)
+            localStorage.removeItem(STORAGE_KEYS.AUTH)
+            return initial
         }
-    }, [])
+    })
 
     const login = (user: User, accessToken: string) => {
         const authData = { user, accessToken, loginTime: new Date().toISOString() }

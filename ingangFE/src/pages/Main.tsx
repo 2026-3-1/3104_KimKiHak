@@ -19,7 +19,9 @@ const Main = () => {
                     배우고 싶은 현장 기술을 골라서 시청해보세요.
                 </p>
 
-                <CategoryBar />
+                <div className="mt-8">
+                    <CategoryBar showSubs={false} />
+                </div>
             </section>
 
             {isAuthenticated && <MyCourses />}

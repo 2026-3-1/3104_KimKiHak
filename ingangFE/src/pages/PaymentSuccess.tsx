@@ -2,20 +2,17 @@ import { useEffect, useState } from 'react'
 import { confirmPayment } from '../shared/api/payments'
 
 const PaymentSuccess = () => {
-    const [status, setStatus] = useState<'loading' | 'done' | 'error'>('loading')
-    const [errorMsg, setErrorMsg] = useState('')
+    const params = new URLSearchParams(window.location.search)
+    const paymentKey = params.get('paymentKey') ?? ''
+    const orderId = Number(params.get('orderId'))
+    const amount = Number(params.get('amount'))
+    const isValid = !!paymentKey && !!orderId && !Number.isNaN(amount)
+
+    const [status, setStatus] = useState<'loading' | 'done' | 'error'>(() => (isValid ? 'loading' : 'error'))
+    const [errorMsg, setErrorMsg] = useState(() => (isValid ? '' : '결제 정보가 올바르지 않습니다.'))
 
     useEffect(() => {
-        const params = new URLSearchParams(window.location.search)
-        const paymentKey = params.get('paymentKey') ?? ''
-        const orderId = Number(params.get('orderId'))
-        const amount = Number(params.get('amount'))
-
-        if (!paymentKey || !orderId || isNaN(amount)) {
-            setErrorMsg('결제 정보가 올바르지 않습니다.')
-            setStatus('error')
-            return
-        }
+        if (!isValid) return
 
         confirmPayment(paymentKey, orderId, amount)
             .then(() => setStatus('done'))
@@ -24,7 +21,7 @@ const PaymentSuccess = () => {
                 setErrorMsg(msg)
                 setStatus('error')
             })
-    }, [])
+    }, [amount, isValid, orderId, paymentKey])
 
     if (status === 'loading') {
         return (

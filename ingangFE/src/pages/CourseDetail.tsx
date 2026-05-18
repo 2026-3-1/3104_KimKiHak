@@ -52,18 +52,23 @@ const CourseDetail = () => {
         if (firstLesson) openLesson(firstLesson)
     }
 
-    const handleEnroll = () => {
+    const handleEnroll = async () => {
         if (!course) return
-        const targetLesson = course.curriculum[0]?.items[0]
-        enrollCourse({
-            id: course.id,
-            title: course.title,
-            instructor: course.instructor,
-            thumbnail: course.thumbnail,
-            lessonProgress: {},
-            lastWatchedLessonId: null,
-        })
-        if (targetLesson) openLesson(targetLesson)
+        try {
+            await enrollCourse({
+                id: course.id,
+                title: course.title,
+                instructor: course.instructor,
+                thumbnail: course.thumbnail,
+                lessonProgress: {},
+                lastWatchedLessonId: null,
+            })
+        } catch (err) {
+            console.error('수강신청 실패:', err)
+            alert('수강신청에 실패했습니다. 다시 시도해주세요.')
+            return
+        }
+        setActiveTab('curriculum')
     }
 
     const handleAddToCart = async () => {

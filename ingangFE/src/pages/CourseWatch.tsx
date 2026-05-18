@@ -33,17 +33,20 @@ export default function CourseWatch() {
     const courseId        = Number(urlParams.get('courseId'))
     const initialLessonId = Number(urlParams.get('lessonId') || 0)
     const initialStart    = Number(urlParams.get('startSeconds') || 0)
+    const isValidCourseId = !!courseId && !Number.isNaN(courseId)
 
     // ── 강의 데이터 ──────────────────────────────────
     const [course, setCourse] = useState<{
         id: number; title: string; youtubeId: string; curriculum: CurriculumSection[]
     } | null>(null)
-    const [isLoading,     setIsLoading]     = useState(true)
-    const [errorMessage,  setErrorMessage]  = useState<string | null>(null)
+    const [isLoading,     setIsLoading]     = useState(() => isValidCourseId)
+    const [errorMessage,  setErrorMessage]  = useState<string | null>(() =>
+        isValidCourseId ? null : '강의 정보를 찾을 수 없습니다.',
+    )
     const [selectedLessonId, setSelectedLessonId] = useState(initialLessonId)
     const [currentYoutubeId, setCurrentYoutubeId] = useState('')
 
-    const { enrolledCourses, completeLesson } = useMyCourses()
+    const { enrolledCourses, isCoursesLoading, completeLesson } = useMyCourses()
     const enrolled = enrolledCourses.find((c) => c.id === course?.id)
 
     // ── YouTube Player refs ──────────────────────────
@@ -53,15 +56,11 @@ export default function CourseWatch() {
     const intervalRef      = useRef<ReturnType<typeof setInterval> | null>(null)
     const pendingStartRef  = useRef(initialStart) // 다음 영상 시작 위치
     // 이벤트 핸들러 클로저용 ref
-    const liveRef = useRef({ subscriptionId: 0, lessonId: 0, courseId: 0, totalLessons: 0 })
+    const liveRef = useRef({ subscriptionId: 0, lessonId: 0, courseId: 0 })
 
     // ── 강의 로드 ─────────────────────────────────────
     useEffect(() => {
-        if (!courseId || Number.isNaN(courseId)) {
-            setErrorMessage('강의 정보를 찾을 수 없습니다.')
-            setIsLoading(false)
-            return
-        }
+        if (!isValidCourseId) return
 
         ;(async () => {
             await syncLectureDurations(courseId).catch(() => {})
@@ -96,21 +95,21 @@ export default function CourseWatch() {
         })()
             .catch(() => setErrorMessage('강의 정보를 불러오지 못했습니다.'))
             .finally(() => setIsLoading(false))
-    }, [courseId, initialLessonId])
+    }, [courseId, initialLessonId, isValidCourseId])
 
     // ── 미수강 접근 차단 ──────────────────────────────
     useEffect(() => {
-        if (!course || enrolled) return
+        if (!course || enrolled || isCoursesLoading) return
         const current = course.curriculum.flatMap((s) => s.items).find((i) => i.id === selectedLessonId)
         if (current?.isPreview) return
         const preview = course.curriculum.flatMap((s) => s.items).find((i) => i.isPreview)
         if (preview) {
-            setSelectedLessonId(preview.id)
-            setCurrentYoutubeId(preview.youtubeId || course.youtubeId)
-        } else {
-            setErrorMessage('미리보기 영상이 없습니다. 수강신청 후 시청할 수 있습니다.')
+            queueMicrotask(() => {
+                setSelectedLessonId(preview.id)
+                setCurrentYoutubeId(preview.youtubeId || course.youtubeId)
+            })
         }
-    }, [course, enrolled, selectedLessonId])
+    }, [course, enrolled, isCoursesLoading, selectedLessonId])
 
     // ── liveRef 동기화 ────────────────────────────────
     useEffect(() => {
@@ -118,7 +117,6 @@ export default function CourseWatch() {
             subscriptionId: enrolled?.subscriptionId ?? 0,
             lessonId:       selectedLessonId,
             courseId:       course?.id ?? 0,
-            totalLessons:   course?.curriculum.reduce((s, sec) => s + sec.items.length, 0) ?? 0,
         }
     }, [enrolled, selectedLessonId, course])
 
@@ -151,10 +149,10 @@ export default function CourseWatch() {
             stopInterval()
             saveCurrent()
             // 자동 완료 처리
-            const { subscriptionId, lessonId, courseId, totalLessons } = liveRef.current
+            const { subscriptionId, lessonId, courseId } = liveRef.current
             if (subscriptionId && lessonId) {
                 completeLessonApi(subscriptionId, lessonId)
-                    .then(() => completeLesson(courseId, lessonId, totalLessons))
+                    .then(() => completeLesson(courseId, lessonId))
                     .catch(() => {})
             }
         }

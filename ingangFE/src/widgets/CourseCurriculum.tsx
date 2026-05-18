@@ -17,12 +17,12 @@ const CourseCurriculum = ({
   return (
     <div>
       <h2 className="mb-6 text-2xl font-bold">커리큘럼</h2>
-      <div className="space-y-6">
+      <div className="overflow-hidden border divide-y rounded-lg">
         {course.curriculum.map((section) => (
-          <div key={section.id} className="overflow-hidden border rounded-lg">
-            <div className="px-6 py-4 border-b bg-slate-50">
+          <div key={section.id}>
+            <div className="px-6 py-4 border-b bg-slate-100">
               <h3 className="text-lg font-semibold">{section.title}</h3>
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-slate-8q00">
                 {section.items.length}강 ·{' '}
                 {formatDuration(section.items.reduce((total, item) => total + item.durationSec, 0))}
               </p>
@@ -44,7 +44,7 @@ const CourseCurriculum = ({
                   >
                     <div className="flex items-center gap-3">
                       {status === 'COMPLETED' && <span className="text-green-600">✅</span>}
-                      {status === 'IN_PROGRESS' && <span className="text-blue-500 text-sm">▶</span>}
+                      {status === 'IN_PROGRESS' && <span className="text-sm text-blue-500">▶</span>}
                       {item.isPreview && (
                         <span className="px-2 py-1 text-xs text-green-800 bg-green-100 rounded">
                           미리보기
@@ -55,10 +55,10 @@ const CourseCurriculum = ({
                     <div className="flex items-center gap-3 text-sm text-slate-600">
                       <span>{secondsToTimeString(item.durationSec)}</span>
                       {status === 'COMPLETED' && (
-                        <span className="text-green-600 text-xs font-medium">시청 완료</span>
+                        <span className="text-xs font-medium text-green-600">시청 완료</span>
                       )}
                       {status === 'IN_PROGRESS' && (
-                        <span className="text-blue-500 text-xs">시청 중</span>
+                        <span className="text-xs text-blue-500">시청 중</span>
                       )}
                       {canWatch && status === 'NOT_STARTED' ? (
                         <span className="text-blue-600 hover:text-blue-800">▶️ 재생</span>

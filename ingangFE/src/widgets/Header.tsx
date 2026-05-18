@@ -73,6 +73,14 @@ const Header = () => {
 
                         {isAuthenticated && user ? (
                             <div className="flex items-center gap-3">
+                                {user.type === 'instructor' && (
+                                    <a
+                                        href="/instructor/lectures"
+                                        className="px-4 py-2 text-sm font-medium rounded-full text-amber-700 bg-amber-50 hover:bg-amber-100"
+                                    >
+                                        강사 관리
+                                    </a>
+                                )}
                                 <div className="flex items-center gap-2">
                                     <div className="flex items-center justify-center w-8 h-8 text-sm font-bold text-white bg-amber-600 rounded-full">
                                         {user.name[0]}
