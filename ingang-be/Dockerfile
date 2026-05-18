@@ -17,4 +17,4 @@ COPY prisma.config.ts ./
 RUN npm install --omit=dev
 COPY --from=builder /app/dist ./dist
 EXPOSE 8080
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/main"]
